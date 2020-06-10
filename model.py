@@ -204,7 +204,7 @@ class RRModel(nn.Module):
         hidden = Variable(torch.zeros(batch_size, self.rnn_model.nhid)).cuda()
 
         for t in range(0, max_len):
-            if t<start_size:
+            if t<start_size-1:
                 step_input = emb[:,t,:]
                 # net emb
                 if self.rnn_model.use_network:

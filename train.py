@@ -16,6 +16,7 @@ from model import RNNModel
 from model import RRModel
 from Optim import ScheduledOptim
 from DataLoader import DataLoader
+import json
 
 def get_performance(crit, pred, gold, smoothing=False, num_class=None):
     ''' Apply label smoothing if needed '''
@@ -117,7 +118,7 @@ def train_epoch(model, training_data, crit, optimizer,RL_setting,expect,):
 
         # note keeping
         n_total_correct += n_correct
-        total_loss += loss.data[0]
+        total_loss += loss.item()
 
     return total_loss/n_total_words, n_total_correct/n_total_words, expect_new/batch_num, reward/batch_num
 
@@ -149,7 +150,7 @@ def eval_epoch(model, validation_data, crit):
         n_words = gold.data.ne(Constants.PAD).sum().float()
         n_total_words += n_words
         n_total_correct += n_correct
-        total_loss += loss.data[0]
+        total_loss += loss.item()
 
         pred_ids, pred_probs = model(tgt,RL_train=True)
 
@@ -252,13 +253,13 @@ def train(model, training_data, validation_data, test_data, crit, optimizer, opt
             'settings': opt,
             'epoch': epoch_i}
 
-        if epoch_i>=opt.warmup-1 or epoch_i % 5==4:
-            # test
-            scores, reward_test = test_epoch(model, test_data)
-            print('  - (Test) ')
-            for metric in scores.keys():
-                print(metric+' '+str(scores[metric]))
-            print('reward '+str(reward_test)+'\n')
+#         if epoch_i % 5==4:
+#             # test
+#             scores, reward_test = test_epoch(model, test_data,)
+#             print('  - (Test) ')
+#             for metric in scores.keys():
+#                 print(metric+' '+str(scores[metric]))
+#             print('reward '+str(reward_test)+'\n')
 
         if opt.save_model:
             if opt.save_mode == 'all':
@@ -278,6 +279,21 @@ def train(model, training_data, validation_data, test_data, crit, optimizer, opt
                 log_vf.write('{epoch},{loss: 8.5f},{ppl: 8.5f},{accu:3.3f}\n'.format(
                     epoch=epoch_i, loss=valid_loss,
                     ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu))
+    scores_save = {}
+    scores, reward_test = test_epoch(model, test_data)
+    scores_save['batch_size'] = opt.batch_size
+    scores_save['epoch'] = opt.epoch
+    scores_save['d_model'] = opt.d_model
+    scores_save['d_inner_hid'] = opt.d_inner_hid
+    scores_save['n_warmup_steps'] = opt.n_warmup_steps
+    scores_save['warmup'] = opt.warmup
+    scores_save['reward'] = reward_test
+    scores_save.update(scores)
+    print('TEST RESULTS')
+    for metric in scores_save.keys():
+        print(metric + ' ' + str(scores_save[metric]))
+    with open("results_1281_sampled.json","w") as f:
+        json.dump(scores_save, f, indent=True)
 
 def main():
     torch.set_num_threads(4)
@@ -286,14 +302,14 @@ def main():
 
     #parser.add_argument('-data', required=True)
 
-    parser.add_argument('-epoch', type=int, default=50)
-    parser.add_argument('-batch_size', type=int, default=16)
+    parser.add_argument('-epoch', type=int, default=5)
+    parser.add_argument('-batch_size', type=int, default=8)
 
     #parser.add_argument('-d_word_vec', type=int, default=512)
-    parser.add_argument('-d_model', type=int, default=64)
-    parser.add_argument('-d_inner_hid', type=int, default=64)
+    parser.add_argument('-d_model', type=int, default=16)
+    parser.add_argument('-d_inner_hid', type=int, default=16)
 
-    parser.add_argument('-n_warmup_steps', type=int, default=1000)
+    parser.add_argument('-n_warmup_steps', type=int, default=100)
 
     parser.add_argument('-dropout', type=float, default=0.1)
     parser.add_argument('-embs_share_weight', action='store_true')
@@ -307,7 +323,7 @@ def main():
 
     parser.add_argument('-network', type=int, default=0) # use social network; need features or deepwalk embeddings as initial input
     parser.add_argument('-pos_emb', type=int, default=1)
-    parser.add_argument('-warmup', type=int, default=10) # warmup epochs
+    parser.add_argument('-warmup', type=int, default=3) # warmup epochs
     parser.add_argument('-notes', default='')
     parser.add_argument('-data_name', default='twitter')
 
