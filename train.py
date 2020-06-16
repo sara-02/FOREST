@@ -204,8 +204,9 @@ def test_epoch(model, test_data, k_list=[1,5,10,20,50,100]):
     for k in k_list:
         scores['hits@' + str(k)] = scores['hits@' + str(k)] / n_total_words
         scores['map@' + str(k)] = scores['map@' + str(k)] / n_total_words
-    scores['tau'] = scores['tau']/batch_num
-    scores['row'] = scores['row']/batch_num
+    print("BATCH NUM", batch_num, n_total_words)
+    scores['tau'] = scores['tau'] /  n_total_words
+    scores['row'] = scores['row'] /  n_total_words
     return scores, reward / batch_num
 
 def train(model, training_data, validation_data, test_data, crit, optimizer, opt):
@@ -286,6 +287,7 @@ def train(model, training_data, validation_data, test_data, crit, optimizer, opt
                     ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu))
     scores_save = {}
     scores, reward_test = test_epoch(model, test_data)
+    scores_save['torch_threads'] = opt.torch_threads
     scores_save['batch_size'] = opt.batch_size
     scores_save['epoch'] = opt.epoch
     scores_save['d_model'] = opt.d_model
@@ -301,20 +303,22 @@ def train(model, training_data, validation_data, test_data, crit, optimizer, opt
         json.dump(scores_save, f, indent=True)
 
 def main():
-    torch.set_num_threads(4)
+    torch_num_threads = 25
+    torch.set_num_threads(torch_num_threads)
     ''' Main function'''
     parser = argparse.ArgumentParser()
 
     #parser.add_argument('-data', required=True)
-
-    parser.add_argument('-epoch', type=int, default=5)
-    parser.add_argument('-batch_size', type=int, default=16)
-
+    parser.add_argument('-torch_threads', type=int, default=25)
+    
+    parser.add_argument('-epoch', type=int, default=10)
+    parser.add_argument('-batch_size', type=int, default=8)
+    
     #parser.add_argument('-d_word_vec', type=int, default=512)
     parser.add_argument('-d_model', type=int, default=8)
     parser.add_argument('-d_inner_hid', type=int, default=8)
 
-    parser.add_argument('-n_warmup_steps', type=int, default=100)
+    parser.add_argument('-n_warmup_steps', type=int, default=3)
 
     parser.add_argument('-dropout', type=float, default=0.1)
     parser.add_argument('-embs_share_weight', action='store_true')
