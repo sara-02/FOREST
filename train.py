@@ -167,6 +167,8 @@ def test_epoch(model, test_data, k_list=[1,5,10,20,50,100]):
     model.eval()
 
     scores = {}
+    scores['tau']=0
+    scores['row']=0
     for k in k_list:
         scores['hits@' + str(k)] = 0
         scores['map@' + str(k)] = 0
@@ -185,12 +187,13 @@ def test_epoch(model, test_data, k_list=[1,5,10,20,50,100]):
 
         # forward
         pred, *_ = model(tgt,RL_train=False)
-        scores_batch, scores_len = metrics.portfolio(pred.detach().cpu().numpy(), gold.contiguous().view(-1).detach().cpu().numpy(), k_list)
+        scores_batch, scores_len = metrics.portfolio(pred.detach().cpu().numpy(), gold.contiguous().view(-1).detach().cpu().numpy(), k_list, test_batch=True)
         n_total_words += scores_len
         for k in k_list:
             scores['hits@' + str(k)] += scores_batch['hits@' + str(k)] * scores_len
             scores['map@' + str(k)] += scores_batch['map@' + str(k)] * scores_len        
-
+        scores['tau'] += scores_batch['tau']
+        scores['row'] += scores_batch['row']
         pred_ids, pred_probs = model(tgt,RL_train=True)
 
         for i in range(10):
@@ -201,6 +204,8 @@ def test_epoch(model, test_data, k_list=[1,5,10,20,50,100]):
     for k in k_list:
         scores['hits@' + str(k)] = scores['hits@' + str(k)] / n_total_words
         scores['map@' + str(k)] = scores['map@' + str(k)] / n_total_words
+    scores['tau'] = scores['tau']/batch_num
+    scores['row'] = scores['row']/batch_num
     return scores, reward / batch_num
 
 def train(model, training_data, validation_data, test_data, crit, optimizer, opt):
@@ -292,7 +297,7 @@ def train(model, training_data, validation_data, test_data, crit, optimizer, opt
     print('TEST RESULTS')
     for metric in scores_save.keys():
         print(metric + ' ' + str(scores_save[metric]))
-    with open("results_1281_sampled.json","w") as f:
+    with open("results_final.json","w") as f:
         json.dump(scores_save, f, indent=True)
 
 def main():
@@ -303,11 +308,11 @@ def main():
     #parser.add_argument('-data', required=True)
 
     parser.add_argument('-epoch', type=int, default=5)
-    parser.add_argument('-batch_size', type=int, default=8)
+    parser.add_argument('-batch_size', type=int, default=16)
 
     #parser.add_argument('-d_word_vec', type=int, default=512)
-    parser.add_argument('-d_model', type=int, default=16)
-    parser.add_argument('-d_inner_hid', type=int, default=16)
+    parser.add_argument('-d_model', type=int, default=8)
+    parser.add_argument('-d_inner_hid', type=int, default=8)
 
     parser.add_argument('-n_warmup_steps', type=int, default=100)
 

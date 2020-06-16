@@ -7,6 +7,7 @@ import collections
 from sklearn.preprocessing import label_binarize
 from scipy.stats import rankdata
 import Constants
+from scipy import stats
 
 def _retype(y_prob, y):
     if not isinstance(y, (collections.Sequence, np.ndarray)):
@@ -96,7 +97,17 @@ def hits_k(y_prob, y, k=10):
         acc += [1. if y_ in top_k else 0.]
     return sum(acc) / len(acc)
 
-def portfolio(pred, gold, k_list=[1,5,10,20]):
+def _flatten_y(y_ori, y_len):
+    y_flat = []
+    for i in range(y_len):
+        if i==y_ori:
+            y_flat.append(1)
+        else:
+            y_flat.append(0)
+    y_flat = np.array(y_flat)
+    return y_flat
+
+def portfolio(pred, gold, k_list=[1,5,10,20], test_batch=True):
     scores_len = 0
     y_prob=[]
     y=[]
@@ -109,5 +120,17 @@ def portfolio(pred, gold, k_list=[1,5,10,20]):
     for k in k_list:
         scores['hits@' + str(k)] = hits_k(y_prob, y, k=k)
         scores['map@' + str(k)] = mapk(y_prob, y, k=k)
+    
+    if test_batch:
+        num_test, y_len = y_prob.shape
+        print("TEST SHAPE", num_test, y_len)
+        tau = 0.0
+        row = 0.0
+        for i in range(num_test):
+            y_flat = _flatten_y(y[i],y_len)
+            tau += stats.kendalltau(y_prob[i],y_flat)[0]
+            row += stats.spearmanr(y_prob[i],y_flat)[0]
+        scores['tau'] = tau/num_test
+        scores['row'] = row/num_test
 
     return scores, scores_len
